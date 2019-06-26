@@ -193,7 +193,7 @@ router.post('/stanza', jsonParser, (req, res) => {
   const sizedFields = {
     stanza: {
       min: 1,
-      max: 70
+      max: 90
     }
   };
   const tooSmallField = Object.keys(sizedFields).find(
@@ -257,4 +257,101 @@ router.post('/stanza', jsonParser, (req, res) => {
     });
 });
 
+
+// Put to update a stanza
+router.put('/stanza', jsonParser, (req, res) => {
+  const requiredFields = ['stanza', 'id'];
+  const missingField = requiredFields.find(field => !(field in req.body));
+
+  if (missingField) {
+    return res.status(422).json({
+      code: 422,
+      reason: 'ValidationError',
+      message: 'Missing field',
+      location: missingField
+    });
+  }
+
+  const stringFields = ['stanza'];
+  const nonStringField = stringFields.find(
+    field => field in req.body && typeof req.body[field] !== 'string'
+  );
+
+  if (nonStringField) {
+    return res.status(422).json({
+      code: 422,
+      reason: 'ValidationError',
+      message: 'Incorrect field type: expected string',
+      location: nonStringField
+    });
+  }
+
+  const explicityTrimmedFields = ['stanza'];
+  const nonTrimmedField = explicityTrimmedFields.find(
+    field => req.body[field].trim() !== req.body[field]
+  );
+
+  if (nonTrimmedField) {
+    return res.status(422).json({
+      code: 422,
+      reason: 'ValidationError',
+      message: 'Cannot start or end with whitespace',
+      location: nonTrimmedField
+    });
+  }
+
+  const sizedFields = {
+    stanza: {
+      min: 1,
+      max: 90
+    }
+  };
+  const tooSmallField = Object.keys(sizedFields).find(
+    field =>
+      'min' in sizedFields[field] &&
+            req.body[field].trim().length < sizedFields[field].min
+  );
+  const tooLargeField = Object.keys(sizedFields).find(
+    field =>
+      'max' in sizedFields[field] &&
+            req.body[field].trim().length > sizedFields[field].max
+  );
+
+  if (tooSmallField || tooLargeField) {
+    return res.status(422).json({
+      code: 422,
+      reason: 'ValidationError',
+      message: tooSmallField
+        ? `Must be at least ${sizedFields[tooSmallField]
+          .min} characters long`
+        : `Must be at most ${sizedFields[tooLargeField]
+          .max} characters long`,
+      location: tooSmallField || tooLargeField
+    });
+  }
+
+  const updated = {};
+  const updateableFields = ['stanza'];
+  updateableFields.forEach(field => {
+  if (field in req.body) {
+      updated[field] = req.body[field];
+  }
+  });
+
+  return PoemStanza
+    .findByIdAndUpdate(req.body.id, { $set: updated }, { new: true })
+    .then(newStanza => {
+      console.log(newStanza);
+      res.status(200).json(newStanza);
+    })
+    .catch(err => {
+      // Forward validation errors on to the client, otherwise give a 500
+      // error because something unexpected has happened
+      if (err.reason === 'ValidationError') {
+        return res.status(err.code).json(err);
+      }
+      console.log(err);
+      res.status(500).json({code: 500, message: 'Internal server error'});
+    });
+});
 module.exports = {router};

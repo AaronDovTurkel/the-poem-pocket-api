@@ -21,7 +21,7 @@ const poemStanzaSchema = mongoose.Schema({
 poemTitleSchema.virtual('fullPoem').get(function() {  
   return {
     title: this.title,
-    stanzas: this.stanzas.map(array => [array.stanza, array.lineNumber, array.author])
+    stanzas: this.stanzas.map(array => [array.stanza, array._id, array.author])
   };
 });
 
